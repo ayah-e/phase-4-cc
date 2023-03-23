@@ -33,23 +33,81 @@ def restaurants():
     return response
 
 #Restaurant by Id
-@app.route('/restaurants/<int:id>', methods = ['GET'])
+@app.route('/restaurants/<int:id>', methods = ['GET', 'DELETE'])
 def restaurant_by_id(id):
 
-    restaurant = Restaurant.query.filter_by(id = id).first()
-    if restaurant:
+    if request.method == 'GET':
+        restaurant = Restaurant.query.filter_by(id = id).first()
+        if restaurant:
 
-        restaurant_dict = restaurant.to_dict()
-        response = make_response(
-            jsonify(restaurant_dict),
-            200
+            restaurant_dict = restaurant.to_dict()
+            response = make_response(
+                jsonify(restaurant_dict),
+                200
+            )
+        else:
+            response = make_response(
+                {"error" : "Restaurant not found"}
+            )
+        return response
+    
+    elif request.method == 'DELETE':
+        restaurant = Restaurant.query.filter_by(id = id).first()
+        if not restaurant:
+            response = make_response(
+                {"error" : "Restaurant not found"},
+                404
+            )
+            return response
+        
+        else:
+            db.session.delete(restaurant)
+            db.session.commit()
+
+            response = make_response(
+                { "success" : "Deleted Restaurant"},
+                200
+            )
+            return response      
+
+#PIZZA GET
+@app.route('/pizzas', methods = ['GET'])
+def pizzas():
+    pizzas_dict = [pizza.to_dict() for pizza in Pizza.query.all()]
+
+    response = make_response(
+        jsonify(pizzas_dict),
+        200
+    )
+    return response
+
+#POST Restaurant pizzas
+@app.route('/restaurant_pizzas', methods = ['POST'])
+def post_restaurant_pizzas():
+    try:
+        new_restaurant_pizza = RestaurantPizza(
+            price = request.get_json()['price'],
+            pizza_id = request.get_json()['pizza_id'],
+            restaurant_id = request.get_json()['restaurant_id']
         )
-    else:
+
+        db.session.add(new_restaurant_pizza)
+        db.session.commit()
+
+        restaurant_pizza_dict = new_restaurant_pizza.pizza.to_dict(rules = ('restaurant_pizzas',))
+
         response = make_response(
-            {"error" : "Restaurant not found"}
+            jsonify(restaurant_pizza_dict),
+            201
+        )
+
+    except ValueError:
+
+        response = make_response(
+            { "errors": ["validation errors"]}
         )
     return response
 
-
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
+
